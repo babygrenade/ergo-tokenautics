@@ -9,7 +9,7 @@ import sys
 def progress(count,total):
     sys.stdout.write(f'progress: {count} of {total}\r')
     sys.stdout.flush()
-    
+  
 def get_box_amounts(items,token_id):
     boxes = []
     for box in items:
@@ -53,12 +53,12 @@ def get_holders(token_id):
     progress(total,total)
     return df2
 
-tokens = {
-    '🍆💦':'185e217d80d797800bfa699afda708ee101ae664f8ea237d9fc3a3824b7c3ecb',
-    'MiGoreng':'0779ec04f2fae64e87418a1ad917639d4668f78484f45df962b0dec14a2591d2',
-    'Ergold':'e91cbc48016eb390f8f872aa2962772863e2e840708517d1ab85e57451f91bed',
-    'COMET':'0cd8c9f416e5b1ca9f986a7f10a84191dfb85941619e49e53c0dc30ebf83324b'
-    }
+with open('token_list.csv','r',encoding='utf-8') as f:
+    token_file=f.readlines()
+
+token_parse = lambda x : x.replace('\n','').split(',')
+
+tokens = dict(map(token_parse,token_file))
 
 for token in tokens:
     token_id = tokens[token]
