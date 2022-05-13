@@ -60,8 +60,19 @@ def get_transaction_list(token_id):
 def parse_transaction(data,token_id):
     outputs = get_box_amounts(data['outputs'],token_id)
     inputs = get_box_amounts(data['inputs'],token_id)
-    for input in inputs:
-        input['amount'] = input['amount'] * -1
+    height = data['inclusionHeight']
+
+    df_out = pd.DataFrame(outputs).groupby('address').sum().reset_index()
+    df_in = pd.DataFrame(inputs).groupby('address').sum().reset_index()
+
+    df = df_out.merge(df_in, how='left', on='address', suffixes=('_out','_in'))
+    df['weight'] = df['amount_out'] - df['amount_in']
+
+    df = df_in.merge(df, how='cross', suffixes=('_in','_out')).rename(columns={'address_in': 'source', 'address_out': 'target'})
+    df = df[['source','target','weight']]
+    df = df[df['source'] != df['target']]
+    df['height'] = height
+    return df
     
 
 def get_transaction_details(transaction_ids,token_id):
@@ -71,7 +82,7 @@ def get_transaction_details(transaction_ids,token_id):
                     raise_on_status=True)
     s.mount('http://', HTTPAdapter(max_retries=retries))
     s.mount('https://', HTTPAdapter(max_retries=retries))
-    transaction_ids = []
+    transactions = []
     responses = []
     urls = []
     for transaction_id in transaction_ids:
@@ -85,6 +96,11 @@ def get_transaction_details(transaction_ids,token_id):
         if r.status_code != 200:
             print(r.status_code)
         data = r.json()
-        
+        transactions.append(parse_transaction(data,token_id))
+    df = pd.concat(transactions)    
     progress(total,total)
-    return transaction_ids
+    return df
+
+def format_graph(df):
+    addresses = list(set(pd.concat([df['source'],df['target']]).to_list()))
+    links = json.loads(df.to_json(orient="records"))
