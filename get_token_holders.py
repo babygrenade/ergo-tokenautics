@@ -28,21 +28,23 @@ def get_holders(token_id):
     decimals = r.json()['decimals']
     r = requests.get(url=f'https://api.ergoplatform.com/api/v1/boxes/unspent/byTokenId/{token_id}?limit=1')
     total = r.json()['total']
-    s = requests.Session()
+
     retries = Retry(total=5, backoff_factor=0.2, status_forcelist=[500, 502, 503, 504, 520, 525], raise_on_redirect=True,
                     raise_on_status=True)
-    s.mount('http://', HTTPAdapter(max_retries=retries))
-    s.mount('https://', HTTPAdapter(max_retries=retries))
+
     boxes = []
     responses = []
     while offset <= total:
         progress(offset,total)
         urls = []
-        while offset <= total and len(urls) < 20:
+        while offset <= total and len(urls) < 5:
             urls.append(f'https://api.ergoplatform.com/api/v1/boxes/unspent/byTokenId/{token_id}?limit=100&offset={offset}')
             offset += 100
-        rs = (grequests.get(u, session=s) for u in urls)
-        rl = grequests.map(rs)
+        with requests.Session() as s:
+            s.mount('http://', HTTPAdapter(max_retries=retries))
+            s.mount('https://', HTTPAdapter(max_retries=retries))
+            rs = (grequests.get(u, session=s) for u in urls)
+            rl = grequests.map(rs)
         responses = responses + rl
     for r in responses:
         if r.status_code != 200:
@@ -61,7 +63,7 @@ with open('token_list.csv','r',encoding='utf-8') as f:
 
 token_parse = lambda x : x.replace('\n','').split(',')
 
-tokens = dict(map(token_parse,token_file))
+tokens = dict(map(token_parse,token_file[-1:]))
 
 
 for token in tokens:
