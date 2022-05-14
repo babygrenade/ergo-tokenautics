@@ -16,10 +16,10 @@ def get_box_amounts(items,token_id):
         for asset in box['assets']:
             if asset['tokenId'] == token_id:
                 amount = asset['amount']
-        boxes.append({
-                'boxId' : box['boxId'],
-                'address' : box['address'],
-                'amount' : amount})
+                boxes.append({
+                        'boxId' : box['boxId'],
+                        'address' : box['address'],
+                        'amount' : amount})
     return boxes
 
 def get_holders(token_id):
@@ -63,7 +63,7 @@ with open('token_list.csv','r',encoding='utf-8') as f:
 
 token_parse = lambda x : x.replace('\n','').split(',')
 
-tokens = dict(map(token_parse,token_file[-1:]))
+tokens = dict(map(token_parse,token_file))
 
 
 for token in tokens:
