@@ -66,10 +66,15 @@ def parse_transaction(data,token_id):
     height = data['inclusionHeight']
 
     df_out = pd.DataFrame(outputs).groupby('address').sum().reset_index()
+    if len(inputs) == 0:
+        df = df_out[['address','amount']].rename(columns={'address':'target','amount':'weight'})
+        df['source'] = 'token-creation'
+        df['height'] = height
+        return df
     df_in = pd.DataFrame(inputs).groupby('address').sum().reset_index()
 
     df = df_out.merge(df_in, how='left', on='address', suffixes=('_out','_in'))
-    df['weight'] = df['amount_out'] - df['amount_in']
+    df['weight'] = df['amount_out'] - df['amount_in'].fillna(0)
 
     df = df_in.merge(df, how='cross', suffixes=('_in','_out')).rename(columns={'address_in': 'source', 'address_out': 'target'})
     df = df[['source','target','weight']]
@@ -99,8 +104,11 @@ def get_transaction_details(transaction_ids,token_id):
         if r.status_code != 200:
             print(r.status_code)
         data = r.json()
-        transactions.append(parse_transaction(data,token_id))
-    df = pd.concat(transactions)    
+        try:
+            transactions.append(parse_transaction(data,token_id))
+        except:
+            print(data['id'])
+    df = pd.concat(transactions).reset_index(inplace=True)    
     progress(total,total)
     return df
 
