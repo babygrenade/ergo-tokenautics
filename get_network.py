@@ -58,32 +58,56 @@ def get_transaction_list(token_id):
         total = data['total']
         transaction_ids = transaction_ids + get_transaction_ids(data['items'])
     progress(total,total)
-    return transaction_ids
+    return list(set(transaction_ids))
 
-def parse_transaction(data,token_id):
+def map_transaction_edges(data,token_id):
     outputs = get_box_amounts(data['outputs'],token_id)
     inputs = get_box_amounts(data['inputs'],token_id)
     height = data['inclusionHeight']
 
-    df_out = pd.DataFrame(outputs).groupby('address').sum().reset_index()
+    # Handle token creation
     if len(inputs) == 0:
+        df_out = pd.DataFrame(outputs).groupby('address').sum().reset_index()
         df = df_out[['address','amount']].rename(columns={'address':'target','amount':'weight'})
         df['source'] = 'token-creation'
         df['height'] = height
         return df
+    #Handle all token inputs burned
+    if len(outputs) == 0:
+        df_in = pd.DataFrame(inputs).groupby('address').sum().reset_index()
+        df = df_in[['address','amount']].rename(columns={'address':'source','amount':'weight'})
+        df['target'] = 'burned'
+        df['height'] = height
+        return df
+
+    df_out = pd.DataFrame(outputs).groupby('address').sum().reset_index()
     df_in = pd.DataFrame(inputs).groupby('address').sum().reset_index()
 
+
+    #reduce by amount in input for addresses in input and output boxes
     df = df_out.merge(df_in, how='left', on='address', suffixes=('_out','_in'))
     df['weight'] = df['amount_out'] - df['amount_in'].fillna(0)
 
     df = df_in.merge(df, how='cross', suffixes=('_in','_out')).rename(columns={'address_in': 'source', 'address_out': 'target'})
-    df = df[['source','target','weight']]
-    df = df[df['source'] != df['target']]
+
+    #filter out returned boxes
+    df2 = df[df['source'] != df['target']].copy()
+
+    #Handle partial burned
+    total_out = df_out.sum()['amount']
+    total_in = df_in.sum()['amount']
+    if total_out < total_in:
+        burned = df[df['amount_out'] < df['amount_in']].copy()
+        burned['weight'] = total_in - total_out
+        burned['target'] = 'burned'
+        df2 = pd.concat([df2,burned])
+
+    df = df2[['source','target','weight']].copy()
     df['height'] = height
     return df
     
 
-def get_transaction_details(transaction_ids,token_id):
+def map_edges(transaction_ids,token_id):
     total = len(transaction_ids)
     s = requests.Session()
     retries = Retry(total=5, backoff_factor=0.2, status_forcelist=[500, 502, 503, 504, 520, 525], raise_on_redirect=True,
@@ -97,21 +121,24 @@ def get_transaction_details(transaction_ids,token_id):
         urls.append(f'https://api.ergoplatform.com/api/v1/transactions/{transaction_id}')
 
     for i in range(0,total,20):
+        progress(i,total)
         rs = (grequests.get(u, session=s) for u in urls[i:i+20])
         rl = grequests.map(rs)
         responses = responses + rl
+
     for r in responses:
         if r.status_code != 200:
             print(r.status_code)
         data = r.json()
         try:
-            transactions.append(parse_transaction(data,token_id))
+            transactions.append(map_transaction_edges(data,token_id))
         except:
             print(data['id'])
-    df = pd.concat(transactions).reset_index(inplace=True)    
+    df = pd.concat(transactions)
+    df.reset_index(inplace=True,drop=True)    
     progress(total,total)
-    return df
+    return df 
 
-def format_graph(df):
+def map_nodes(df):
     addresses = list(set(pd.concat([df['source'],df['target']]).to_list()))
-    links = json.loads(df.to_json(orient="records"))
+    #edges = json.loads(df.to_json(orient="records"))
