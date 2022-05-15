@@ -50,11 +50,13 @@ def get_holders(token_id):
         if r.status_code != 200:
             print(r.status_code)
         data = r.json()
+        total = data['total']
         boxes= boxes + get_box_amounts(data['items'],token_id)
     df = pd.DataFrame(list(boxes)).drop_duplicates()
     df2 = df.groupby('address').sum()
     df2['percentage'] = round((df2['amount'] / df.sum()['amount']),6)
     df2['amount'] = df2['amount'] / pow(10,decimals)
+    df2 = df2.round(decimals)
     progress(total,total)
     return df2
 
@@ -65,10 +67,13 @@ token_parse = lambda x : x.replace('\n','').split(',')
 
 tokens = dict(map(token_parse,token_file))
 
-
 for token in tokens:
     token_id = tokens[token]
     start = datetime.now()
-    df = get_holders(token_id)
+    try:
+        df = get_holders(token_id)
+    except:
+        print(f'{token} skipped')
+        continue
     df.sort_values(by=['amount'],ascending=False).to_csv(f'data/{token}.csv',index=True)
     print('complete')
