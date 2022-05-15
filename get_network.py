@@ -33,26 +33,29 @@ def get_transaction_list(token_id):
     offset = 0
     r = requests.get(url=f'https://api.ergoplatform.com/api/v1/boxes/byTokenId/{token_id}?limit=1')
     total = r.json()['total']
-    s = requests.Session()
+
     retries = Retry(total=5, backoff_factor=0.2, status_forcelist=[500, 502, 503, 504, 520, 525], raise_on_redirect=True,
                     raise_on_status=True)
-    s.mount('http://', HTTPAdapter(max_retries=retries))
-    s.mount('https://', HTTPAdapter(max_retries=retries))
+
     transaction_ids = []
     responses = []
     while offset <= total:
         progress(offset,total)
         urls = []
-        while offset <= total and len(urls) < 20:
+        while offset <= total and len(urls) < 5:
             urls.append(f'https://api.ergoplatform.com/api/v1/boxes/byTokenId/{token_id}?limit=100&offset={offset}')
             offset += 100
-        rs = (grequests.get(u, session=s) for u in urls)
-        rl = grequests.map(rs)
+        with requests.Session() as s:
+            s.mount('http://', HTTPAdapter(max_retries=retries))
+            s.mount('https://', HTTPAdapter(max_retries=retries))
+            rs = (grequests.get(u, session=s) for u in urls)
+            rl = grequests.map(rs)
         responses = responses + rl
     for r in responses:
         if r.status_code != 200:
             print(r.status_code)
         data = r.json()
+        total = data['total']
         transaction_ids = transaction_ids + get_transaction_ids(data['items'])
     progress(total,total)
     return transaction_ids
