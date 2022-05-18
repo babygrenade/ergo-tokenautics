@@ -24,8 +24,6 @@ def get_box_amounts(items,token_id):
 
 def get_holders(token_id):
     offset = 0
-    r = requests.get(url=f'https://api.ergoplatform.com/api/v1/tokens/{token_id}')
-    decimals = r.json()['decimals']
     r = requests.get(url=f'https://api.ergoplatform.com/api/v1/boxes/unspent/byTokenId/{token_id}?limit=1')
     total = r.json()['total']
 
@@ -55,15 +53,13 @@ def get_holders(token_id):
     df = pd.DataFrame(list(boxes)).drop_duplicates()
     df2 = df.groupby('address').sum()
     df2['percentage'] = round((df2['amount'] / df.sum()['amount']),6)
-    df2['amount'] = df2['amount'] / pow(10,decimals)
-    df2 = df2.round(decimals)
     progress(total,total)
     return df2
 
 with open('token_list.csv','r',encoding='utf-8') as f:
     token_file=f.readlines()
 
-token_parse = lambda x : x.replace('\n','').split(',')
+token_parse = lambda x : x.replace('\n','').split(',')[0:2]
 
 tokens = dict(map(token_parse,token_file))
 
