@@ -6,4 +6,5 @@ Data is accumulated daily in this repository's data directory.
 
 Collected data can be explored using the [Ergo Tokenautics Frontend](https://babygrenade.github.io/ergo-tokenautics-frontend/)
 
-To request additional tokens, open an issue with the token name and id.
+Automatically tracked tokens are listed in token_list.csv.
+Create a pull request to add additional tokens.
