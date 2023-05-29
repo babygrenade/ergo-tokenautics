@@ -1,0 +1,6 @@
+# replace address to point to a private explorer instance
+EXPLORER_API_BASE = api.ergoplatform.com
+# Explorer database settings for direct db connection. Locally hosted db example.
+EXPLORER_DB_HOST = 127.0.0.1
+EXPLORER_DB_USER =
+EXPLORER_DB_PW =
