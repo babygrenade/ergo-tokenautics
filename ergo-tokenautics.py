@@ -22,6 +22,17 @@ EXPLORER_DB_HOST = os.environ.get('EXPLORER_DB_HOST')
 EXPLORER_DB_USER = os.environ.get('EXPLORER_DB_USER')
 EXPLORER_DB_PW = os.environ.get('EXPLORER_DB_PW')
 
+# combines spectrum list with token_list.csv
+def update_tokens():
+    current_tokens = pd.read_csv('token_list.csv',names = ['ticker','address','decimals'])
+    spectrum_url = 'https://raw.githubusercontent.com/spectrum-finance/default-token-list/master/src/tokens/ergo.json'
+    r = requests.get(spectrum_url)
+    s_tokens = pd.DataFrame(r.json()['tokens'])
+    s_tokens = s_tokens[['ticker','address','decimals']]
+    u_df = pd.concat([current_tokens,s_tokens], ignore_index=True).drop_duplicates()
+    u_df.to_csv('token_list.csv',index=False,header=False)
+    return True
+
 # Connects to explorer db using psycopg2 and executes sql query from explorerquery.sql
 def connect_db():
     conn = pg.connect(dbname="explorer", user=EXPLORER_DB_USER, password=EXPLORER_DB_PW,host=EXPLORER_DB_HOST)
@@ -127,14 +138,23 @@ def connect_api():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-db","--database",help="Whether to attempt a database connection to explorer.  Defaults to Y if blank")
+    parser.add_argument("-u","--update",help="Update token_list.csv with latest from Spectrum finance. Defaults to Y if blank",action="store_true")
     args =  parser.parse_args()
+
     # flag to attempt db connection or skip and go directly to api connection
     connect_db_flag = args.database or "Y"
     connect_db_flag = connect_db_flag.upper()
+
+
     if connect_db_flag not in ('Y','N'):
         print('-db flag must be Y or N')
         return False
-    
+
+    # update token_list
+    if args.update:
+        update_tokens()
+        print("token_list.csv updated")
+
     complete = False
     try:
         if connect_db_flag == 'Y':
