@@ -24,14 +24,24 @@ EXPLORER_DB_PW = os.environ.get('EXPLORER_DB_PW')
 
 # combines spectrum list with token_list.csv
 def update_tokens():
-    current_tokens = pd.read_csv('token_list.csv',names = ['ticker','address','decimals'])
-    spectrum_url = 'https://raw.githubusercontent.com/spectrum-finance/default-token-list/master/src/tokens/ergo.json'
-    r = requests.get(spectrum_url)
-    s_tokens = pd.DataFrame(r.json()['tokens'])
-    s_tokens = s_tokens[['ticker','address','decimals']]
-    u_df = pd.concat([current_tokens,s_tokens], ignore_index=True).drop_duplicates()
-    u_df.to_csv('token_list.csv',index=False,header=False)
-    return True
+    try:
+        current_tokens = pd.read_csv('token_list.csv',names = ['ticker','address','decimals'])
+        spectrum_url = 'https://raw.githubusercontent.com/spectrum-finance/ergo-token-list/main/src/tokens.json'
+        r = requests.get(spectrum_url)
+        tokens = []
+        tok_dict = r.json()
+        for key in tok_dict:
+            value = tok_dict[key]
+            value['address'] = key
+            tokens.append(value)
+
+        s_tokens = pd.DataFrame(tokens)
+        s_tokens = s_tokens[['ticker','address','decimals']]
+        u_df = pd.concat([current_tokens,s_tokens], ignore_index=True).drop_duplicates()
+        u_df.to_csv('token_list.csv',index=False,header=False,encoding='utf-8')
+        return True
+    except:
+        return False
 
 # Connects to explorer db using psycopg2 and executes sql query from explorerquery.sql
 def connect_db():
